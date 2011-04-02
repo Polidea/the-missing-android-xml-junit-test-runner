@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="PolideaTestInstrumentation" default="help">
 
-<!-- The local.properties file is created and updated by the 'android'
+    <!-- The local.properties file is created and updated by the 'android'
      tool.
      It contains the path to the SDK. It should *NOT* be checked into
      Version Control Systems. -->
@@ -36,44 +36,26 @@
     <!-- Required pre-setup import -->
     <import file="${sdk.dir}/tools/ant/pre_setup.xml" />
 
+    <setup import="no" />
+    <import file="${sdk.dir}/tools/ant/main_rules.xml" />
 
-<!-- extension targets. Uncomment the ones where you want to do custom work
-     in between standard targets -->
-<!--
-    <target name="-pre-build">
+    <target name="jar" description="builds jar file containing the test runner" depends="compile">
+        <tstamp></tstamp>
+        <manifest file="gen/MANIFEST.MF">
+            <attribute name="Built-By" value="${user.name}" />
+            <section name="common">
+                <attribute name="Specification-Title" value="Polidea Instrumentation" />
+                <attribute name="Specification-Version" value="1.0" />
+                <attribute name="Specification-Vendor" value="Polidea Sp. z o.o." />
+                <attribute name="Implementation-Title" value="Polidea Instrumentation" />
+                <attribute name="Implementation-Version" value="1.0 ${TODAY}" />
+                <attribute name="Implementation-Vendor" value="Polidea Sp. z o.o." />
+            </section>
+        </manifest>
+        <jar destfile="gen/polidea_test_runner_1.0.jar" update="false" manifest="gen/MANIFEST.MF">
+            <fileset dir="${out.classes.absolute.dir}">
+            </fileset>
+        </jar>
     </target>
-    <target name="-pre-compile">
-    </target>
-
-    [This is typically used for code obfuscation.
-     Compiled code location: ${out.classes.absolute.dir}
-     If this is not done in place, override ${out.dex.input.absolute.dir}]
-    <target name="-post-compile">
-    </target>
--->
-
-    <!-- Execute the Android Setup task that will setup some properties
-         specific to the target, and import the build rules files.
-
-         The rules file is imported from
-            <SDK>/tools/ant/
-         Depending on the project type it can be either:
-         - main_rules.xml
-         - lib_rules.xml
-         - test_rules.xml
-
-         To customize existing targets, there are two options:
-         - Customize only one target:
-             - copy/paste the target into this file, *before* the
-               <setup> task.
-             - customize it to your needs.
-         - Customize the whole script.
-             - copy/paste the content of the rules files (minus the top node)
-               into this file, *after* the <setup> task
-             - disable the import of the rules by changing the setup task
-               below to <setup import="false" />.
-             - customize to your needs.
-    -->
-    <setup />
 
 </project>
