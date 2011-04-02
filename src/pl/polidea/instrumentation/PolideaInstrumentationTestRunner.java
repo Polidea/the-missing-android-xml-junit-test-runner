@@ -26,12 +26,12 @@ import android.util.Log;
 public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner {
     private static final String DEFAULT_JUNIT_FILE_NAME = "TEST-all.xml";
     private String junitOutputFilePath = null;
-    private boolean junitOutputEnabled = false;
+    private boolean junitOutputEnabled;
 
     private static final String TAG = PolideaInstrumentationTestRunner.class.getSimpleName();
 
     /**
-     * Last file where test results are written
+     * File where test results are written
      */
     private File outputFile;
     /**
@@ -150,12 +150,13 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             outputFileWriter.write("</system-out>\n");
             outputFileWriter.write("<system-err>\n");
             outputFileWriter.write("</system-err>\n");
-            outputFileWriter.write("<testsuite>\n");
+            outputFileWriter.write("</testsuite>\n");
         }
     }
 
     private void startFile() {
         outputFile = new File(getJunitOutputFilePath());
+        Log.d(TAG, "Writing to file " + outputFile);
         try {
             outputFileWriter = new PrintWriter(outputFile, "UTF-8");
             outputFileWriter.write("<testsuites>\n");
@@ -167,9 +168,12 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
     private void endFile() {
         if (outputFile != null) {
+            Log.d(TAG, "closing file " + outputFile);
             outputFileWriter.write("</testsuites>\n");
             outputFileWriter.flush();
             outputFileWriter.close();
+        } else {
+            Log.d(TAG, "Not writing  - file null");
         }
     }
 
@@ -184,26 +188,34 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     @Override
     public void onCreate(final Bundle arguments) {
         if (arguments != null) {
-            junitOutputEnabled = arguments.getBoolean("junitOutput", false);
+            junitOutputEnabled = arguments.getBoolean("junitXmlOutput", true);
             junitOutputFilePath = arguments.getString("junitOutputFile");
         }
         super.onCreate(arguments);
-        startFile();
     }
 
     @Override
-    public void onDestroy() {
+    public void finish(final int resultCode, final Bundle results) {
         endSingleClass();
         endFile();
-        super.onDestroy();
+        super.finish(resultCode, results);
+    }
+
+    @Override
+    public void onStart() {
+        startFile();
+        super.onStart();
     }
 
     @Override
     protected AndroidTestRunner getAndroidTestRunner() {
+        Log.d(TAG, "Getting android test runner");
         final AndroidTestRunner runner = super.getAndroidTestRunner();
         if (junitOutputEnabled) {
+            Log.d(TAG, "JUnit test output enabled");
             runner.addTestListener(new JunitTestListener());
-
+        } else {
+            Log.d(TAG, "JUnit test output disabled");
         }
         return runner;
     }
