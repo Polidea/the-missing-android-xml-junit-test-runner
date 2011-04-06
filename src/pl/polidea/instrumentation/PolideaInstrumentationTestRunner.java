@@ -242,20 +242,20 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
                 + testInfo.name + "\" time=\"" + testInfo.time / 1000.0 + "\">\n";
         printWriter.write(testCase);
         if (testInfo.error != null) {
-            printWriter.write("                <error>\n");
+            printWriter.write("                <error><![CDATA[\n");
             final StringWriter sw = new StringWriter();
             final PrintWriter pw = new PrintWriter(sw, true);
             testInfo.error.printStackTrace(pw);
             printWriter.write(sw.toString());
-            printWriter.write("                </error>\n");
+            printWriter.write("]]>             </error>\n");
         }
         if (testInfo.failure != null) {
-            printWriter.write("                <failure>\n");
+            printWriter.write("                <failure><![CDATA[\n");
             final StringWriter sw = new StringWriter();
             final PrintWriter pw = new PrintWriter(sw, true);
             testInfo.failure.printStackTrace(pw);
             printWriter.write(sw.toString());
-            printWriter.write("                </failure>\n");
+            printWriter.write("]]>             </failure>\n");
         }
         printWriter.write("            </testcase>\n");
     }
