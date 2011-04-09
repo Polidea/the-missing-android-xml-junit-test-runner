@@ -25,9 +25,50 @@ import android.util.Log;
 import android.util.Xml;
 
 /**
- * Test runner that should produce Junit-compatible test results. It can be used
- * to produce output that is parseable by a CI reporting tool which understands
- * Junit XML format (Jenkins, Hudson, Bamboo ...).
+ * Test runner that should produce JUnit-compatible test results. It can be used
+ * to produce output that is parseable by any tool that understands JUnit XML
+ * output format. It is extremely useful for example when using CI systems (all
+ * of which understand JUnit output XML) such as Jenkins, Hudson, Bamboo,
+ * CruiseControl and many more.
+ * 
+ * The runner is flexible enough to produce separate file for each package,
+ * class or for the whole test execution. By default it produces results split
+ * by package.
+ * 
+ * Therefore you can run the runner with some extra parameters, like:
+ * <p>
+ * 
+ * <code>
+ * adb shell am instrument -w somepackage/pl.polidea.instrumentation.PolideaInstrumentationTestRunner -e junitSplitLevel class
+ * </code>
+ * </p>
+ * It supports the following parameters (none of the parameters is mandatory,
+ * they assume reasonable default values):
+ * 
+ * <ul>
+ * <li>junitXmlOutput - boolean ("true"/"false") indicating whether XML Junit
+ * output should be produced at all. Default is true</li>
+ * <li>junitOutputDirectory - string specifying in which directory the XML files
+ * should be placed. Default is the on-device local "files" directory for the
+ * TESTED application (not TESTING application!). Usually in
+ * /data/data/&lt;package&gt;/files</li>
+ * <li>junitOutputFilePostFix - string specifying what is the postfix of files
+ * created. Default value is "-TEST.xml". The files are always prefixed with
+ * package name with the exception of top-level, root package.</li>
+ * <li>junitNoPackagePrefix - string specifying what is the prefix in case test
+ * is in top-level directory (i.e. has no package). Default value is
+ * "NO_PACKAGE".</li>
+ * <li>junitSplitLevel - string specifying what splitting will be applied. The
+ * runner can split the test results into several files: either per class,
+ * package or it can produce a single big file for all tests run. Allowed value
+ * are "class", "package" or "none". Default value is "package".</li>
+ * <li>junitSingleFileName - string specifying what name will be given to output
+ * file in case the split is "none". Default value is ALL-TEST.xml</li>
+ * </ul>
+ * 
+ * For more details about parameters, visit <a
+ * href="http://developer.android.com/guide/developing/testing/testing_otheride
+ * .html#RunTestsCommand"> Android test runner command line documentation</a>
  * 
  * @author potiuk
  * 
@@ -51,14 +92,34 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     private static final String SYSTEM_OUT = "system-out";
     private static final String SYSTEM_ERR = "system-err";
 
+    private static final String SPLIT_LEVEL_NONE = "none";
+    private static final String SPLIT_LEVEL_CLASS = "class";
+    private static final String SPLIT_LEVEL_PACKAGE = "package";
+
     private static final String TAG = PolideaInstrumentationTestRunner.class.getSimpleName();
     private static final String DEFAULT_JUNIT_FILE_POSTFIX = "-TEST.xml";
+    private static final String DEFAULT_NO_PACKAGE_PREFIX = "NO_PACKAGE";
+    private static final String DEFAULT_SINGLE_FILE_NAME = "ALL-TEST.xml";
+    private static final String DEFAULT_SPLIT_LEVEL = SPLIT_LEVEL_PACKAGE;
     private String junitOutputDirectory = null;
     private String junitOutputFilePostfix = null;
+    private String junitNoPackagePrefix;
+    private String junitSplitLevel;
+    private String junitSingleFileName;
+
     private boolean junitOutputEnabled;
     private boolean justCount;
     private XmlSerializer currentXmlSerializer;
+    private final LinkedHashMap<Package, TestCaseInfo> caseMap = new LinkedHashMap<Package, TestCaseInfo>();
+    private boolean outputEnabled;
+    private AndroidTestRunner runner;
+    private boolean logOnly;
+    private PrintWriter currentFileWriter;
 
+    /**
+     * Stores information about single test run.
+     * 
+     */
     public static class TestInfo {
         public Package thePackage;
         public Class< ? extends TestCase> testCase;
@@ -74,32 +135,46 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         }
     }
 
-    public static class TestPackageInfo {
-        public Package thePackage;
-        public Map<Class< ? extends TestCase>, TestCaseInfo> testCaseList = new LinkedHashMap<Class< ? extends TestCase>, TestCaseInfo>();
-    }
-
+    /**
+     * Stores information about particular test case class - containing all
+     * tests for that class.
+     * 
+     */
     public static class TestCaseInfo {
         public Package thePackage;
         public Class< ? extends TestCase> testCaseClass;
         public Map<String, TestInfo> testMap = new LinkedHashMap<String, TestInfo>();
     }
 
-    private final LinkedHashMap<Package, TestCaseInfo> caseMap = new LinkedHashMap<Package, TestCaseInfo>();
     /**
-     * The last test class we executed code from.
+     * Stores information about the whole package containing multiple test
+     * cases.
+     * 
      */
-    private boolean outputEnabled;
-    private AndroidTestRunner runner;
-    private boolean logOnly;
-    private PrintWriter currentFileWriter;
+    public static class TestPackageInfo {
+        public Package thePackage;
+        public Map<Class< ? extends TestCase>, TestCaseInfo> testCaseList = new LinkedHashMap<Class< ? extends TestCase>, TestCaseInfo>();
+    }
 
+    /**
+     * Listener for executing test cases. It has the following purposes:
+     * measures time of execution for each test, stores errors and failures that
+     * occur during test as well as it optimizes garbage collection of the test
+     * - after test is finished it cleans up all the static variables of the
+     * test case. The last one is pretty useful if many tests are executed.
+     * 
+     */
     private class JunitTestListener implements TestListener {
 
         /**
          * The minimum time we expect a test to take.
          */
         private static final int MINIMUM_TIME = 100;
+        /**
+         * Just in case it ever happens that the tests are run in parallell
+         * (maybe future junit version?) we make sure that measured time is
+         * separate per each thread running the tests.
+         */
         private final ThreadLocal<Long> startTime = new ThreadLocal<Long>();
 
         @Override
@@ -117,6 +192,9 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
                 final TestCase testCase = (TestCase) t;
                 cleanup(testCase);
                 /*
+                 * Note! This is copied from InstrumentationCoreTestRunner in
+                 * android code
+                 * 
                  * Make sure all tests take at least MINIMUM_TIME to complete.
                  * If they don't, we wait a bit. The Cupcake Binder can't handle
                  * too many operations in a very short time, which causes
@@ -205,9 +283,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         return ti;
     }
 
-    public void startFile(final Package p) throws IOException {
-        Log.d(TAG, "Starting Package " + p);
-        final File outputFile = new File(getJunitOutputFilePath(p));
+    public void startFile(final File outputFile) throws IOException {
         Log.d(TAG, "Writing to file " + outputFile);
         currentXmlSerializer = Xml.newSerializer();
         currentFileWriter = new PrintWriter(outputFile, "UTF-8");
@@ -294,17 +370,33 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         currentXmlSerializer.endTag(null, TESTCASE);
     }
 
-    private String getJunitOutputFilePath(final Package p) {
-        return junitOutputDirectory + File.separator + (p == null ? "NO_PACKAGE" : p.getName())
-                + junitOutputFilePostfix;
+    private File getJunitOutputFile(final Package p) {
+        return new File(junitOutputDirectory, (p == null ? junitNoPackagePrefix : p.getName()) + junitOutputFilePostfix);
     }
 
-    private void setOutputProperties() {
+    private File getJunitOutputFile() {
+        return new File(junitOutputDirectory, junitSingleFileName + junitOutputFilePostfix);
+    }
+
+    private File getJunitOutputFile(final Class< ? extends TestCase> clazz) {
+        return new File(junitOutputDirectory, clazz.getName() + junitOutputFilePostfix);
+    }
+
+    private void setProperties() {
         if (junitOutputDirectory == null) {
             junitOutputDirectory = getTargetContext().getFilesDir().getAbsolutePath();
         }
         if (junitOutputFilePostfix == null) {
             junitOutputFilePostfix = DEFAULT_JUNIT_FILE_POSTFIX;
+        }
+        if (junitNoPackagePrefix == null) {
+            junitNoPackagePrefix = DEFAULT_NO_PACKAGE_PREFIX;
+        }
+        if (junitSplitLevel == null) {
+            junitSplitLevel = DEFAULT_SPLIT_LEVEL;
+        }
+        if (junitSingleFileName == null) {
+            junitSingleFileName = DEFAULT_SINGLE_FILE_NAME;
         }
     }
 
@@ -323,10 +415,12 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             junitOutputEnabled = getBooleanArgument(arguments, "junitXmlOutput", true);
             junitOutputDirectory = arguments.getString("junitOutputDirectory");
             junitOutputFilePostfix = arguments.getString("junitOutputFilePostFix");
+            junitNoPackagePrefix = arguments.getString("junitNoPackagePrefix");
+            junitSplitLevel = arguments.getString("junitSplitLevel");
             justCount = getBooleanArgument(arguments, "count", false);
             logOnly = getBooleanArgument(arguments, "log", false);
         }
-        setOutputProperties();
+        setProperties();
         deleteOldFiles();
         super.onCreate(arguments);
     }
@@ -346,23 +440,75 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     public void finish(final int resultCode, final Bundle results) {
         Log.d(TAG, "Finishing test");
         if (outputEnabled) {
-            Log.d(TAG, "Packages: " + caseMap.size());
-            for (final Package p : caseMap.keySet()) {
-                Log.d(TAG, "Processing package " + p);
-                try {
-                    startFile(p);
-                    try {
-                        final TestCaseInfo tc = caseMap.get(p);
-                        writeClassToFile(tc);
-                    } finally {
-                        endFile();
-                    }
-                } catch (final IOException e) {
-                    Log.e(TAG, "Error: " + e, e);
-                }
+            if (SPLIT_LEVEL_PACKAGE.equals(junitSplitLevel)) {
+                processPackageLevelSplit();
+            } else if (SPLIT_LEVEL_CLASS.equals(junitSplitLevel)) {
+                processClassLevelSplit();
+            } else if (SPLIT_LEVEL_NONE.equals(junitSplitLevel)) {
+                processNoSplit();
+            } else {
+                Log.d(TAG, "Invalid split level " + junitSplitLevel + ", falling back to package level split.");
+                processPackageLevelSplit();
             }
         }
         super.finish(resultCode, results);
+    }
+
+    private void processNoSplit() {
+        try {
+            final File f = getJunitOutputFile();
+            startFile(f);
+            try {
+                for (final Package p : caseMap.keySet()) {
+                    try {
+                        final TestCaseInfo tc = caseMap.get(p);
+                        writeClassToFile(tc);
+                    } catch (final IOException e) {
+                        Log.e(TAG, "Error: " + e, e);
+                    }
+                }
+            } finally {
+                endFile();
+            }
+        } catch (final IOException e) {
+            Log.e(TAG, "Error: " + e, e);
+        }
+    }
+
+    private void processPackageLevelSplit() {
+        Log.d(TAG, "Packages: " + caseMap.size());
+        for (final Package p : caseMap.keySet()) {
+            Log.d(TAG, "Processing package " + p);
+            try {
+                final File f = getJunitOutputFile(p);
+                startFile(f);
+                try {
+                    final TestCaseInfo tc = caseMap.get(p);
+                    writeClassToFile(tc);
+                } finally {
+                    endFile();
+                }
+            } catch (final IOException e) {
+                Log.e(TAG, "Error: " + e, e);
+            }
+        }
+    }
+
+    private void processClassLevelSplit() {
+        for (final Package p : caseMap.keySet()) {
+            try {
+                final TestCaseInfo tc = caseMap.get(p);
+                final File f = getJunitOutputFile(tc.testCaseClass);
+                startFile(f);
+                try {
+                    writeClassToFile(tc);
+                } finally {
+                    endFile();
+                }
+            } catch (final IOException e) {
+                Log.e(TAG, "Error: " + e, e);
+            }
+        }
     }
 
     @Override
@@ -375,7 +521,8 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             runner.addTestListener(new JunitTestListener());
         } else {
             outputEnabled = false;
-            Log.d(TAG, "JUnit test output disabled");
+            Log.d(TAG, "JUnit test output disabled: [ junitOutputEnabled : " + junitOutputEnabled + ", justCount : "
+                    + justCount + ", logOnly : " + logOnly + " ]");
         }
         return runner;
     }
