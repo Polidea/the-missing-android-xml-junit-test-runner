@@ -15,10 +15,14 @@ import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestListener;
+
+import org.xmlpull.v1.XmlSerializer;
+
 import android.os.Bundle;
 import android.test.AndroidTestRunner;
 import android.test.InstrumentationTestRunner;
 import android.util.Log;
+import android.util.Xml;
 
 /**
  * Test runner that should produce Junit-compatible test results. It can be used
@@ -30,12 +34,30 @@ import android.util.Log;
  */
 public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner {
 
+    private static final String TESTSUITES = "testsuites";
+    private static final String TESTSUITE = "testsuite";
+    private static final String ERRORS = "errors";
+    private static final String FAILURES = "failures";
+    private static final String ERROR = "errors";
+    private static final String FAILURE = "failures";
+    private static final String NAME = "name";
+    private static final String PACKAGE = "package";
+    private static final String TESTS = "tests";
+    private static final String TESTCASE = "testcase";
+    private static final String CLASSNAME = "classname";
+    private static final String TIME = "time";
+    private static final String TIMESTAMP = "timestamp";
+    private static final String PROPERTIES = "properties";
+    private static final String SYSTEM_OUT = "system-out";
+    private static final String SYSTEM_ERR = "system-err";
+
     private static final String TAG = PolideaInstrumentationTestRunner.class.getSimpleName();
     private static final String DEFAULT_JUNIT_FILE_POSTFIX = "-TEST.xml";
     private String junitOutputDirectory = null;
     private String junitOutputFilePostfix = null;
     private boolean junitOutputEnabled;
     private boolean justCount;
+    private XmlSerializer currentXmlSerializer;
 
     public static class TestInfo {
         public Package thePackage;
@@ -70,6 +92,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     private boolean outputEnabled;
     private AndroidTestRunner runner;
     private boolean logOnly;
+    private PrintWriter currentFileWriter;
 
     private class JunitTestListener implements TestListener {
 
@@ -182,20 +205,25 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         return ti;
     }
 
-    public PrintWriter startFile(final Package p) throws IOException {
+    public void startFile(final Package p) throws IOException {
         Log.d(TAG, "Starting Package " + p);
         final File outputFile = new File(getJunitOutputFilePath(p));
         Log.d(TAG, "Writing to file " + outputFile);
-        final PrintWriter outputFileWriter = new PrintWriter(outputFile, "UTF-8");
-        outputFileWriter.write("<testsuites>\n");
-        return outputFileWriter;
+        currentXmlSerializer = Xml.newSerializer();
+        currentFileWriter = new PrintWriter(outputFile, "UTF-8");
+        currentXmlSerializer.setOutput(currentFileWriter);
+        currentXmlSerializer.startDocument("UTF-8", null);
+        currentXmlSerializer.startTag(null, TESTSUITES);
     }
 
-    private void endFile(final PrintWriter p) {
+    private void endFile() throws IOException {
         Log.d(TAG, "closing file");
-        p.write("</testsuites>\n");
-        p.flush();
-        p.close();
+        try {
+            currentXmlSerializer.endTag(null, TESTSUITES);
+        } finally {
+            currentFileWriter.flush();
+            currentFileWriter.close();
+        }
     }
 
     protected String getTimestamp() {
@@ -204,7 +232,8 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         return sdf.format(time);
     }
 
-    private void writeClassToFile(final PrintWriter printWriter, final TestCaseInfo tci) {
+    private void writeClassToFile(final TestCaseInfo tci) throws IllegalArgumentException, IllegalStateException,
+            IOException {
         final Package thePackage = tci.thePackage;
         final Class< ? extends TestCase> clazz = tci.testCaseClass;
         final int tests = tci.testMap.size();
@@ -221,47 +250,53 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             }
             time += testInfo.time;
         }
-        final String suiteHeader = "    <testsuite " + "errors=\"" + errors + "\" " + "failures=\"" + failures + "\" "
-                + "name=\"" + clazz.getName() + "\" " + "package=\"" + thePackage + "\" " + "tests=\"" + tests + "\" "
-                + "time=\"" + time / 1000.0 + "\" " + "timestamp=\"" + timestamp + "\" " + ">\n";
-        Log.d(TAG, suiteHeader);
-        printWriter.write(suiteHeader);
+        currentXmlSerializer.startTag(null, TESTSUITE);
+        currentXmlSerializer.attribute(null, ERRORS, Integer.toString(errors));
+        currentXmlSerializer.attribute(null, FAILURES, Integer.toString(failures));
+        currentXmlSerializer.attribute(null, NAME, clazz.getName());
+        currentXmlSerializer.attribute(null, PACKAGE, thePackage == null ? "" : thePackage.getName());
+        currentXmlSerializer.attribute(null, TESTS, Integer.toString(tests));
+        currentXmlSerializer.attribute(null, TIME, Double.toString(time / 1000.0));
+        currentXmlSerializer.attribute(null, TIMESTAMP, timestamp);
         for (final TestInfo testInfo : tci.testMap.values()) {
-            writeTestInfo(printWriter, testInfo);
+            writeTestInfo(testInfo);
         }
-        printWriter.write("        <properties/>\n");
-        printWriter.write("        <system-out>\n");
-        printWriter.write("        </system-out>\n");
-        printWriter.write("        <system-err>\n");
-        printWriter.write("        </system-err>\n");
-        printWriter.write("    </testsuite>\n");
+        currentXmlSerializer.startTag(null, PROPERTIES);
+        currentXmlSerializer.endTag(null, PROPERTIES);
+        currentXmlSerializer.startTag(null, SYSTEM_OUT);
+        currentXmlSerializer.endTag(null, SYSTEM_OUT);
+        currentXmlSerializer.startTag(null, SYSTEM_ERR);
+        currentXmlSerializer.endTag(null, SYSTEM_ERR);
+        currentXmlSerializer.endTag(null, TESTSUITE);
     }
 
-    private void writeTestInfo(final PrintWriter printWriter, final TestInfo testInfo) {
-        final String testCase = "            <testcase classname=\"" + testInfo.testCase.getName() + "\" name=\""
-                + testInfo.name + "\" time=\"" + testInfo.time / 1000.0 + "\">\n";
-        printWriter.write(testCase);
+    private void writeTestInfo(final TestInfo testInfo) throws IllegalArgumentException, IllegalStateException,
+            IOException {
+        currentXmlSerializer.startTag(null, TESTCASE);
+        currentXmlSerializer.attribute(null, CLASSNAME, testInfo.testCase.getName());
+        currentXmlSerializer.attribute(null, NAME, testInfo.name);
+        currentXmlSerializer.attribute(null, TIME, Double.toString(testInfo.time / 1000.0));
         if (testInfo.error != null) {
-            printWriter.write("                <error><![CDATA[\n");
+            currentXmlSerializer.startTag(null, ERROR);
             final StringWriter sw = new StringWriter();
             final PrintWriter pw = new PrintWriter(sw, true);
             testInfo.error.printStackTrace(pw);
-            printWriter.write(sw.toString());
-            printWriter.write("]]>             </error>\n");
+            currentXmlSerializer.text(sw.toString());
+            currentXmlSerializer.endTag(null, ERROR);
         }
         if (testInfo.failure != null) {
-            printWriter.write("                <failure><![CDATA[\n");
+            currentXmlSerializer.startTag(null, FAILURE);
             final StringWriter sw = new StringWriter();
             final PrintWriter pw = new PrintWriter(sw, true);
             testInfo.failure.printStackTrace(pw);
-            printWriter.write(sw.toString());
-            printWriter.write("]]>             </failure>\n");
+            currentXmlSerializer.text(sw.toString());
+            currentXmlSerializer.endTag(null, FAILURE);
         }
-        printWriter.write("            </testcase>\n");
+        currentXmlSerializer.endTag(null, TESTCASE);
     }
 
     private String getJunitOutputFilePath(final Package p) {
-        return junitOutputDirectory + File.separator + p.getName() + junitOutputFilePostfix;
+        return junitOutputDirectory + File.separator + p == null ? "NO_PACKAGE" : p.getName() + junitOutputFilePostfix;
     }
 
     private void setOutputProperties() {
@@ -315,12 +350,12 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             for (final Package p : caseMap.keySet()) {
                 Log.d(TAG, "Processing package " + p);
                 try {
-                    final PrintWriter pw = startFile(p);
+                    startFile(p);
                     try {
                         final TestCaseInfo tc = caseMap.get(p);
-                        writeClassToFile(pw, tc);
+                        writeClassToFile(tc);
                     } finally {
-                        endFile(pw);
+                        endFile();
                     }
                 } catch (final IOException e) {
                     Log.e(TAG, "Error: " + e, e);
