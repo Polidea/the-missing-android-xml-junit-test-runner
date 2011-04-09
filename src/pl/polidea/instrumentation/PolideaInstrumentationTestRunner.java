@@ -179,6 +179,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
         @Override
         public void startTest(final Test test) {
+            Log.d(TAG, "Starting test: " + test);
             if (test instanceof TestCase) {
                 Thread.currentThread().setContextClassLoader(test.getClass().getClassLoader());
                 startTime.set(System.currentTimeMillis());
@@ -187,7 +188,6 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
         @Override
         public void endTest(final Test t) {
-            Log.d(TAG, "Ending test " + t);
             if (t instanceof TestCase) {
                 final TestCase testCase = (TestCase) t;
                 cleanup(testCase);
@@ -210,7 +210,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
                     }
                 }
             }
-            Log.d(TAG, "Ended test " + t);
+            Log.d(TAG, "Finished test: " + t);
         }
 
         @Override
@@ -238,7 +238,6 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
          * code
          */
         private void cleanup(final TestCase test) {
-            Log.d(TAG, "Cleaning up: " + test);
             Class< ? > clazz = test.getClass();
 
             while (clazz != TestCase.class) {
@@ -257,7 +256,6 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
                 clazz = clazz.getSuperclass();
             }
-            Log.d(TAG, "Cleaned up: " + test);
         }
     }
 
@@ -283,7 +281,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         return ti;
     }
 
-    public void startFile(final File outputFile) throws IOException {
+    private void startFile(final File outputFile) throws IOException {
         Log.d(TAG, "Writing to file " + outputFile);
         currentXmlSerializer = Xml.newSerializer();
         currentFileWriter = new PrintWriter(outputFile, "UTF-8");
@@ -301,7 +299,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         currentFileWriter.close();
     }
 
-    protected String getTimestamp() {
+    private String getTimestamp() {
         final long time = System.currentTimeMillis();
         final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
         return sdf.format(time);
@@ -449,8 +447,8 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
     @Override
     public void finish(final int resultCode, final Bundle results) {
-        Log.d(TAG, "Finishing test");
         if (outputEnabled) {
+            Log.d(TAG, "Post processing");
             if (SPLIT_LEVEL_PACKAGE.equals(junitSplitLevel)) {
                 processPackageLevelSplit();
             } else if (SPLIT_LEVEL_CLASS.equals(junitSplitLevel)) {
