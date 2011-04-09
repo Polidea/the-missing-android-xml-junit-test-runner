@@ -382,7 +382,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         return new File(junitOutputDirectory, clazz.getName() + junitOutputFilePostfix);
     }
 
-    private void setProperties() {
+    private void setDefaultParameters() {
         if (junitOutputDirectory == null) {
             junitOutputDirectory = getTargetContext().getFilesDir().getAbsolutePath();
         }
@@ -420,16 +420,27 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             justCount = getBooleanArgument(arguments, "count", false);
             logOnly = getBooleanArgument(arguments, "log", false);
         }
-        setProperties();
+        setDefaultParameters();
+        logParameters();
         deleteOldFiles();
         super.onCreate(arguments);
     }
 
+    private void logParameters() {
+        Log.d(TAG, "Test runner is running with the following parameters:");
+        Log.d(TAG, "junitOutputDirectory: " + junitOutputDirectory);
+        Log.d(TAG, "junitOutputFilePostfix: " + junitOutputFilePostfix);
+        Log.d(TAG, "junitNoPackagePrefix: " + junitNoPackagePrefix);
+        Log.d(TAG, "junitSplitLevel: " + junitSplitLevel);
+        Log.d(TAG, "junitSingleFileName: " + junitSingleFileName);
+    }
+
     private void deleteOldFiles() {
+        Log.d(TAG, "Deleting old files");
         for (final File f : new File(junitOutputDirectory).listFiles(new FilenameFilter() {
             @Override
             public boolean accept(final File dir, final String filename) {
-                return filename.endsWith(junitOutputFilePostfix);
+                return filename.endsWith(junitOutputFilePostfix) || filename.equals(junitSingleFileName);
             }
         })) {
             f.delete();
