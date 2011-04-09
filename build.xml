@@ -58,4 +58,16 @@
         </jar>
     </target>
 
+    <target name="javadoc" description="Builds javadoc ">
+        <echo message="javadoc"/>
+        <delete dir="javadoc" failonerror="false"/>
+        <mkdir dir="javadoc" />
+        <javadoc destdir="javadoc" author="false" version="false" encoding="utf-8">
+            <packageset dir="src" defaultexcludes="yes">
+                <include name="**" />
+            </packageset>
+            <doctitle><![CDATA[<h1>${javadoc.title}</h1>]]></doctitle>
+       </javadoc>
+    </target>
+
 </project>
