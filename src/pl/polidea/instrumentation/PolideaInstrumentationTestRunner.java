@@ -296,7 +296,8 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     }
 
     private String getJunitOutputFilePath(final Package p) {
-        return junitOutputDirectory + File.separator + p == null ? "NO_PACKAGE" : p.getName() + junitOutputFilePostfix;
+        return junitOutputDirectory + File.separator + (p == null ? "NO_PACKAGE" : p.getName())
+                + junitOutputFilePostfix;
     }
 
     private void setOutputProperties() {
