@@ -81,7 +81,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     private static final String ERRORS = "errors";
     private static final String FAILURES = "failures";
     private static final String ERROR = "errors";
-    private static final String FAILURE = "failures";
+    private static final String FAILURE = "failure";
     private static final String NAME = "name";
     private static final String PACKAGE = "package";
     private static final String TESTS = "tests";
