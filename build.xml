@@ -45,14 +45,14 @@
             <attribute name="Built-By" value="${user.name}" />
             <section name="common">
                 <attribute name="Specification-Title" value="Polidea Instrumentation" />
-                <attribute name="Specification-Version" value="1.0" />
+                <attribute name="Specification-Version" value="1.1" />
                 <attribute name="Specification-Vendor" value="Polidea Sp. z o.o." />
                 <attribute name="Implementation-Title" value="Polidea Instrumentation" />
-                <attribute name="Implementation-Version" value="1.0 ${TODAY}" />
+                <attribute name="Implementation-Version" value="1.1 ${TODAY}" />
                 <attribute name="Implementation-Vendor" value="Polidea Sp. z o.o." />
             </section>
         </manifest>
-        <jar destfile="gen/polidea_test_runner_1.0.jar" update="false" manifest="gen/MANIFEST.MF">
+        <jar destfile="gen/polidea_test_runner_1.1.jar" update="false" manifest="gen/MANIFEST.MF">
             <fileset dir="${out.classes.absolute.dir}">
             </fileset>
         </jar>
