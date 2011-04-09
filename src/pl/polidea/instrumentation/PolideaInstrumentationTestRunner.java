@@ -50,10 +50,12 @@ import android.util.Xml;
  * <li>junitXmlOutput - boolean ("true"/"false") indicating whether XML Junit
  * output should be produced at all. Default is true</li>
  * <li>junitOutputDirectory - string specifying in which directory the XML files
- * should be placed. Default is the on-device local "files" directory for the
- * TESTED application (not TESTING application!). Usually in
- * /data/data/&lt;package&gt;/files</li>
- * <li>junitOutputFilePostFix - string specifying what is the postfix of files
+ * should be placed. Be careful when setting this parameter. TestRunner deletes
+ * all the files matching postfix and single filename before running from this
+ * directory. Default is the on-device local "files" directory for the TESTED
+ * application (not TESTING application!). Usually it is
+ * <code>/data/data/&lt;package&gt;/files</code></li>
+ * <li>junitOutputFilePostfix - string specifying what is the postfix of files
  * created. Default value is "-TEST.xml". The files are always prefixed with
  * package name with the exception of top-level, root package.</li>
  * <li>junitNoPackagePrefix - string specifying what is the prefix in case test
@@ -413,9 +415,10 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         if (arguments != null) {
             junitOutputEnabled = getBooleanArgument(arguments, "junitXmlOutput", true);
             junitOutputDirectory = arguments.getString("junitOutputDirectory");
-            junitOutputFilePostfix = arguments.getString("junitOutputFilePostFix");
+            junitOutputFilePostfix = arguments.getString("junitOutputFilePostfix");
             junitNoPackagePrefix = arguments.getString("junitNoPackagePrefix");
             junitSplitLevel = arguments.getString("junitSplitLevel");
+            junitSingleFileName = arguments.getString("junitSingleFileName");
             justCount = getBooleanArgument(arguments, "count", false);
             logOnly = getBooleanArgument(arguments, "log", false);
         }
