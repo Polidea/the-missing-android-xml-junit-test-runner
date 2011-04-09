@@ -8,6 +8,7 @@ import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -39,7 +40,7 @@ import android.util.Xml;
  * <p>
  * 
  * <code>
- * adb shell am instrument -w somepackage/pl.polidea.instrumentation.PolideaInstrumentationTestRunner -e junitSplitLevel class
+ * adb shell am instrument -e junitSplitLevel class -w somepackage/pl.polidea.instrumentation.PolideaInstrumentationTestRunner
  * </code>
  * </p>
  * It supports the following parameters (none of the parameters is mandatory,
@@ -373,7 +374,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
     }
 
     private File getJunitOutputFile() {
-        return new File(junitOutputDirectory, junitSingleFileName + junitOutputFilePostfix);
+        return new File(junitOutputDirectory, junitSingleFileName);
     }
 
     private File getJunitOutputFile(final Class< ? extends TestCase> clazz) {
@@ -435,12 +436,14 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
     private void deleteOldFiles() {
         Log.d(TAG, "Deleting old files");
-        for (final File f : new File(junitOutputDirectory).listFiles(new FilenameFilter() {
+        final File[] filesToDelete = new File(junitOutputDirectory).listFiles(new FilenameFilter() {
             @Override
             public boolean accept(final File dir, final String filename) {
                 return filename.endsWith(junitOutputFilePostfix) || filename.equals(junitSingleFileName);
             }
-        })) {
+        });
+        Log.d(TAG, "Deleting: " + Arrays.toString(filesToDelete));
+        for (final File f : filesToDelete) {
             f.delete();
         }
     }
