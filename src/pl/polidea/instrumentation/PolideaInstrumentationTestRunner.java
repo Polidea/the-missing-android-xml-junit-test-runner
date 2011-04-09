@@ -211,6 +211,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         Log.d(TAG, "Writing to file " + outputFile);
         currentXmlSerializer = Xml.newSerializer();
         currentFileWriter = new PrintWriter(outputFile, "UTF-8");
+        currentXmlSerializer.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
         currentXmlSerializer.setOutput(currentFileWriter);
         currentXmlSerializer.startDocument("UTF-8", null);
         currentXmlSerializer.startTag(null, TESTSUITES);
@@ -218,12 +219,10 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
 
     private void endFile() throws IOException {
         Log.d(TAG, "closing file");
-        try {
-            currentXmlSerializer.endTag(null, TESTSUITES);
-        } finally {
-            currentFileWriter.flush();
-            currentFileWriter.close();
-        }
+        currentXmlSerializer.endTag(null, TESTSUITES);
+        currentXmlSerializer.endDocument();
+        currentFileWriter.flush();
+        currentFileWriter.close();
     }
 
     protected String getTimestamp() {
