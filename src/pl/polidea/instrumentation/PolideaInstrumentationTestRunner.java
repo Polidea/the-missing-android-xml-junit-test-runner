@@ -424,6 +424,7 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         }
         setDefaultParameters();
         logParameters();
+        createDirectoryIfNotExist();
         deleteOldFiles();
         super.onCreate(arguments);
     }
@@ -436,6 +437,17 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         Log.d(TAG, "junitSplitLevel: " + junitSplitLevel);
         Log.d(TAG, "junitSingleFileName: " + junitSingleFileName);
     }
+    
+    private boolean createDirectoryIfNotExist(){
+    	boolean created = false;
+    	Log.d(TAG, "Creating output directory if it does not exist");
+    	File directory =  new File(junitOutputDirectory);
+    	if (!directory.exists()){
+    		created = directory.mkdirs();
+    	}
+    	Log.d(TAG, "Created directory? " + created );
+    	return created;
+    }
 
     private void deleteOldFiles() {
         Log.d(TAG, "Deleting old files");
@@ -445,9 +457,11 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
                 return filename.endsWith(junitOutputFilePostfix) || filename.equals(junitSingleFileName);
             }
         });
-        Log.d(TAG, "Deleting: " + Arrays.toString(filesToDelete));
-        for (final File f : filesToDelete) {
-            f.delete();
+        if (filesToDelete != null){
+        	Log.d(TAG, "Deleting: " + Arrays.toString(filesToDelete));
+        	for (final File f : filesToDelete) {
+        		f.delete();
+        	}
         }
     }
 
