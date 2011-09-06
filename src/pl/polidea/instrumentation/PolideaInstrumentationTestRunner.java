@@ -266,6 +266,9 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
         final Class< ? extends TestCase> clazz = testCase.getClass();
         final Package thePackage = clazz.getPackage();
         final String name = testCase.getName();
+	StringBuilder sb = new StringBuilder();
+	sb.append(thePackage).append(".").append(clazz.getSimpleName()).append(".").append(name);
+	final String mapKey = sb.toString();
         TestCaseInfo caseInfo = caseMap.get(thePackage);
         if (caseInfo == null) {
             caseInfo = new TestCaseInfo();
@@ -273,13 +276,13 @@ public class PolideaInstrumentationTestRunner extends InstrumentationTestRunner 
             caseInfo.thePackage = thePackage;
             caseMap.put(thePackage, caseInfo);
         }
-        TestInfo ti = caseInfo.testMap.get(name);
+        TestInfo ti = caseInfo.testMap.get(mapKey);
         if (ti == null) {
             ti = new TestInfo();
             ti.name = name;
             ti.testCase = testCase.getClass();
             ti.thePackage = thePackage;
-            caseInfo.testMap.put(name, ti);
+            caseInfo.testMap.put(mapKey, ti);
         }
         return ti;
     }
