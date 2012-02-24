@@ -1,5 +1,5 @@
-
 syntax: regexp
 ^bin$
+^local.properties$
 syntax: regexp
 ^gen$
