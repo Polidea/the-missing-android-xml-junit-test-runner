@@ -1,3 +1,9 @@
+---
+
+__This repository is no longer maintained. Issue reports and pull requests will not be attended.__
+
+---
+
 ##Introduction
 Standard android test runner does not produce a very usable output from tests, if you want to process the output and produce some useful reports. 
 This is for example where you run android tests using Jenkins/Hudson/Bamboo. All these are capable of parsing standard XML junit output and presenting it in a nice way. 
